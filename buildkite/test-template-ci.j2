@@ -46,7 +46,7 @@ COVERAGE_FILE={{ coverage_file }} {{ cmd | replace("pytest ", "pytest --cov=vllm
 {% for cmd in step.commands %}
 {% if "pytest " in cmd %}{% set ns.has_pytest = true %}{% endif %}
 {{ add_pytest_coverage(cmd, coverage_file) }}{{ " && " if not loop.last else "" }}{% endfor %}
-{% endif %}{% if ns.has_pytest %} && if [ -n \"$${CODECOV_TOKEN:-}\" ] && [ -f coverage.xml ]; then [ ! -f codecov ] && curl -Os https://cli.codecov.io/latest/linux/codecov && chmod +x codecov || true; ./codecov upload-process -t \"$${CODECOV_TOKEN}\" -f coverage.xml --git-service github --build \"$${BUILDKITE_BUILD_NUMBER:-unknown}\" --branch \"$${BUILDKITE_BRANCH:-unknown}\" --sha \"$${BUILDKITE_COMMIT:-unknown}\" --slug vllm-project/vllm --flag \"{{ step.label | replace(" ", "_") | replace("(", "") | replace(")", "") | replace("%", "") | replace(",", "_") | replace("+", "_") | lower }}\" --name \"{{ step.label }}\" --dir /vllm-workspace --verbose || true; fi{% endif %}
+{% endif %}{% if ns.has_pytest %} && curl -sSL https://raw.githubusercontent.com/vllm-project/ci-infra/{{ vllm_ci_branch | default('main') }}/buildkite/scripts/upload_codecov.sh | bash -s -- \"{{ step.label }}\"{% endif %}
 {% else %}
 {{ step.command or (step.commands | join(' && ')) | safe }}
 {% endif %}
