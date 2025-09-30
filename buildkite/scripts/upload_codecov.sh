@@ -37,7 +37,6 @@ fi
     --slug vllm-project/vllm \
     --flag "$FLAG" \
     --name "$STEP_LABEL" \
-    --dir /vllm-workspace \
-    --verbose || true
+    --dir /vllm-workspace || true
 
 exit 0
