@@ -16,18 +16,31 @@ if [ -z "${CODECOV_TOKEN:-}" ]; then
 fi
 
 if [ ! -f coverage.xml ]; then
-    echo "coverage.xml not found, skipping upload"
+    echo "coverage.xml not found in $(pwd), skipping upload"
     exit 0
 fi
+
+echo "Found coverage.xml in $(pwd)"
+echo "Sample paths before normalization:"
+grep 'filename=' coverage.xml | head -3 || true
 
 # Normalize filenames in coverage.xml to ensure consistent paths across uploads
 # Map any site/dist-packages and workspace-relative paths to canonical "vllm/"
 # Works across /usr, /usr/local, /opt/conda, virtualenvs, etc.
-sed -i 's@filename="[^"]*/site-packages/vllm/@filename="vllm/@g' coverage.xml || true
-sed -i 's@filename="[^"]*/dist-packages/vllm/@filename="vllm/@g' coverage.xml || true
-sed -i 's@filename="/vllm-workspace/vllm/@filename="vllm/@g' coverage.xml || true
-sed -i 's@filename="\./vllm/@filename="vllm/@g' coverage.xml || true
-sed -i 's@filename="\.\./vllm/@filename="vllm/@g' coverage.xml || true
+if sed -i \
+    -e 's@filename="[^"]*/site-packages/vllm/@filename="vllm/@g' \
+    -e 's@filename="[^"]*/dist-packages/vllm/@filename="vllm/@g' \
+    -e 's@filename="/vllm-workspace/vllm/@filename="vllm/@g' \
+    -e 's@filename="\./vllm/@filename="vllm/@g' \
+    -e 's@filename="\.\./vllm/@filename="vllm/@g' \
+    coverage.xml 2>/dev/null; then
+    echo "✓ Path normalization successful"
+else
+    echo "⚠ Warning: sed path normalization failed, uploading coverage as-is"
+fi
+
+echo "Sample paths after normalization:"
+grep 'filename=' coverage.xml | head -3 || true
 
 # Download codecov CLI if not present
 if [ ! -f codecov ]; then
