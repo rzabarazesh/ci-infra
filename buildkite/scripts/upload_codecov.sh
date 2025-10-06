@@ -24,6 +24,61 @@ echo "Found coverage.xml in $(pwd)"
 echo "Sample paths before normalization:"
 grep 'filename=' coverage.xml | head -3 || true
 
+# Normalize coverage database files as well, so if Codecov runs combine/xml
+# it will regenerate coverage.xml with canonical paths.
+python3 - <<'PY' || true
+import glob, os, sqlite3, sys
+
+def normalize_db(db_path: str) -> None:
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        for table in ("file", "files"):
+            try:
+                cur.execute(f"PRAGMA table_info({table})")
+                cols = [c[1] for c in cur.fetchall()]
+                if "path" not in cols:
+                    continue
+                # Any .../(site|dist)-packages/vllm/... -> vllm/...
+                cur.execute(
+                    f"""
+                    UPDATE {table}
+                    SET path = 'vllm/' || SUBSTR(path, INSTR(path, '/vllm/')+6)
+                    WHERE path LIKE '%/site-packages/vllm/%' OR path LIKE '%/dist-packages/vllm/%'
+                    """
+                )
+                # /vllm-workspace/vllm/... -> vllm/...
+                cur.execute(
+                    f"""
+                    UPDATE {table}
+                    SET path = 'vllm/' || SUBSTR(path, INSTR(path, '/vllm/')+6)
+                    WHERE path LIKE '/vllm-workspace/vllm/%'
+                    """
+                )
+                # ./vllm/... and ../vllm/... -> vllm/...
+                cur.execute(
+                    f"""
+                    UPDATE {table}
+                    SET path = 'vllm/' || SUBSTR(path, INSTR(path, '/vllm/')+6)
+                    WHERE path LIKE './vllm/%' OR path LIKE '../vllm/%'
+                    """
+                )
+                conn.commit()
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"[coverage-db-normalize] {db_path}: {e}", file=sys.stderr)
+    finally:
+        try:
+            conn.close()  # type: ignore[name-defined]
+        except Exception:
+            pass
+
+for db in glob.glob('.coverage*'):
+    if os.path.isfile(db):
+        normalize_db(db)
+PY
+
 # Normalize filenames in coverage.xml to ensure consistent paths across uploads
 # Map any site/dist-packages and workspace-relative paths to canonical "vllm/"
 # Works across /usr, /usr/local, /opt/conda, virtualenvs, etc.
