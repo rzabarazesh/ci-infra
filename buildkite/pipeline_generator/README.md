@@ -1,201 +1,86 @@
 # Pipeline Generator
 
-Python replacement for all three Jinja templates that generate Buildkite CI pipelines for vLLM:
-- `test-template-ci.j2` (full CI pipeline)
-- `test-template-fastcheck.j2` (fast pre-merge checks)
-- `test-template-amd.j2` (AMD-only pipeline)
+Simple Python replacement for Jinja templates that generate Buildkite CI pipelines for vLLM.
 
 ## Quick Start
 
 ```bash
 # CI mode (default)
-python pipeline_generator.py --pipeline_mode ci
+python -m pipeline_generator --pipeline_mode ci
 
 # Fastcheck mode
-python pipeline_generator.py --pipeline_mode fastcheck
+python -m pipeline_generator --pipeline_mode fastcheck
 
 # AMD mode
-python pipeline_generator.py --pipeline_mode amd
+python -m pipeline_generator --pipeline_mode amd
 ```
 
+## Architecture
 
-## Directory Structure
+Simple, readable code matching Jinja template complexity:
 
 ```
 pipeline_generator/
-├── pipeline_generator.py      # Main entry point
-├── pipeline_config.py         # Configuration
-├── docker_build_configs.py    # Build step configs
-├── hardware_test_configs.py   # Hardware test configs
-├── pyproject.toml             # Ruff & mypy config
+├── pipeline_generator.py     # Main entry point
+├── config.py                  # All constants and configuration
+├── models.py                  # TestStep input model only
 │
-├── core/                      # Unified modules (mode-aware)
-│   ├── docker_builds.py      # Build step generation
-│   ├── docker_plugins.py     # Plugin construction
-│   ├── test_step_converter.py # Convert tests to Buildkite steps
-│   ├── test_filtering.py     # Test selection logic
-│   ├── manual_trigger_rules.py # Blocking logic
-│   ├── amd_tests.py          # AMD test group
-│   └── hardware_tests.py     # Hardware test generation
+├── modes/                     # One file per mode (simple dict generation)
+│   ├── ci.py                 # CI pipeline (~630 lines)
+│   ├── fastcheck.py          # Fastcheck pipeline (~520 lines)
+│   └── amd.py                # AMD pipeline (~60 lines)
 │
-├── ci/                        # CI orchestration
-│   ├── ci_pipeline.py        # Main CI orchestration
-│   └── torch_nightly_tests.py # Torch nightly group (CI only)
-│
-├── fastcheck/                 # Fastcheck orchestration
-│   └── fastcheck_pipeline.py # Main fastcheck orchestration
-│
-├── data_models/               # Pydantic data models
-│   ├── test_step.py          # Input from test-pipeline.yaml
-│   ├── buildkite_step.py     # Output for Buildkite
-│   └── docker_config.py      # Docker/K8s configs
-│
-├── command_builders/          # Command transformations (CI only)
-│   ├── normalizer.py         # Flatten & normalize commands
-│   ├── intelligent_test_selection.py # Intelligent test targeting
-│   └── coverage_injection.py # Coverage injection
-│
-├── utils/                     # Shared utilities & constants
-│   ├── constants.py          # All constants (build keys, queues, labels, etc.)
-│   ├── agent_queues.py       # Agent queue selection
-│   ├── command_utils.py      # Command helpers
-│   └── amd_command_builder.py # AMD command formatting
-│
-└── tests/                     # Test suite
-    ├── test_*.py             # 125 unit tests
-    ├── test_integration_comprehensive.py  # 56 CI scenarios
-    └── test_integration_fastcheck.py      # 8 fastcheck scenarios
+└── helpers/                   # Simple utilities
+    ├── builds.py             # Build step dicts
+    ├── commands.py           # Command normalization
+    ├── coverage.py           # Coverage injection (complex)
+    └── test_selection.py    # Intelligent test targeting (complex)
 ```
 
-## Main Flow
+## Design Philosophy
 
-The `pipeline_generator.py` orchestrates everything:
+- **Simple over clever**: Each mode file reads top-to-bottom like its Jinja template
+- **Direct dict construction**: Use f-strings to build YAML dicts, no abstraction layers
+- **Helper functions only where complex**: Coverage and test selection logic is genuinely complex (exists in Jinja too)
+- **No Pydantic output models**: Only use Pydantic for input parsing (TestStep)
+
+## Example Code
 
 ```python
-def generate(self, test_steps):
-    steps = []
-    
-    # Build Docker images
-    steps.append(generate_main_build_step(self.config))
-    steps.extend(generate_cu118_build_steps(self.config))
-    steps.append(generate_cpu_build_step(self.config))
-    
-    # Generate test steps
-    steps.extend(self.generate_test_steps(test_steps))
-    
-    # Add special groups
-    steps.append(generate_torch_nightly_group(test_steps, self.config))
-    steps.append(generate_amd_group(test_steps, self.config))
-    
-    # Add external hardware tests
-    steps.extend(generate_all_hardware_tests(self.config.branch, self.config.nightly))
-    
-    return steps
+def generate_test_step(test, config):
+    """Generate a test step - simple dict construction."""
+    return {
+        "label": test.label,
+        "agents": {"queue": get_queue(test)},
+        "plugins": [{
+            "docker#v5.2.0": {
+                "image": config.container_image,
+                "command": ["bash", "-xc", build_command(test, config)],
+                "environment": ["VLLM_USAGE_SOURCE=ci-test", "HF_TOKEN"],
+            }
+        }],
+        "depends_on": "image-build",
+    }
 ```
-
-Most logic lives in unified modules in `core/` that use `config.pipeline_mode` to branch between CI and Fastcheck behavior. The `ci/` and `fastcheck/` directories only contain orchestration code.
-
-## Where to Find Things
-
-**Core logic (mode-aware):**
-- Build steps: `core/docker_builds.py`
-- Plugin construction: `core/docker_plugins.py`
-- Test filtering: `core/test_filtering.py` and `core/manual_trigger_rules.py`
-- Test conversion: `core/test_step_converter.py`
-- AMD tests: `core/amd_tests.py`
-- Hardware tests: `core/hardware_tests.py`
-
-**Pipeline orchestration:**
-- CI: `ci/ci_pipeline.py` (uses core/)
-- Fastcheck: `fastcheck/fastcheck_pipeline.py` (uses core/)
-- Torch nightly: `ci/torch_nightly_tests.py` (CI only)
-
-**Shared code:**
-- Constants: `utils/constants.py`
-- Data models: `data_models/`
-- Config files: `*_config.py` at root
 
 ## Testing
 
-Run unit tests:
-```bash
-python -m pytest tests/ -k "not integration" -v
-```
+All integration tests verify byte-for-byte YAML compatibility with Jinja templates:
 
-Run integration tests (verifies 100% compatibility with Jinja):
 ```bash
-# All integration tests via pytest
+# All integration tests (64 scenarios)
 pytest tests/test_integration_comprehensive.py tests/test_integration_fastcheck.py
 
-# Or run specific scenario
-pytest tests/test_integration_comprehensive.py -k "coverage"
+# Unit tests
+pytest tests/ -k "not integration"
 ```
 
-**Status**: CI and Fastcheck modes achieve 100% YAML compatibility with their respective Jinja templates.
+**Status**: ✅ 100% YAML compatibility verified (64/64 scenarios pass)
 
 ## How It Works
 
-### Input: test-pipeline.yaml
+1. Read `test-pipeline.yaml` → Parse into TestStep objects
+2. Generate mode-specific pipeline → Simple dicts with f-strings
+3. Write `pipeline.yaml` → Direct YAML dump
 
-```yaml
-steps:
-  - label: "Basic Tests"
-    commands:
-      - pytest tests/basic/
-    source_file_dependencies:
-      - vllm/engine/
-```
-
-### Processing
-
-1. Parse YAML into `TestStep` objects (Pydantic models)
-2. For each test, decide if it should run or be blocked
-3. Convert to `BuildkiteStep` with appropriate Docker plugin
-4. Apply command transformations
-5. Add build steps, special groups, hardware tests
-6. Write final pipeline YAML
-
-### Output: pipeline.yaml
-
-```yaml
-steps:
-  - label: "Build vLLM Image"
-    key: "image-build"
-    # ... build configuration
-  
-  - label: "Basic Tests"
-    depends_on: "image-build"
-    agents: {queue: "gpu_1_queue"}
-    plugins:
-      - docker#v5.2.0:
-          image: "public.ecr.aws/..."
-          command: ["bash", "-xc", "cd /vllm-workspace/tests && pytest tests/basic/"]
-```
-
-## Backward Compatibility
-
-The Python generator produces identical YAML to the Jinja template. This is verified by `test_integration_comprehensive.py`, which runs 56 test scenarios covering:
-
-- Different branches (main vs PR)
-- Run all vs selective testing
-- Nightly mode
-- File change detection
-- Coverage injection
-- Intelligent test filtering
-- Multi-node/GPU configurations
-- Optional tests
-- And more...
-
-All 56 scenarios must produce byte-for-byte identical YAML.
-
-## Contributing
-
-When making changes:
-
-1. Write tests first (in `tests/`)
-2. Make your changes
-3. Run unit tests: `python -m pytest tests/ -k "not integration"`
-4. Run integration tests: `python tests/test_integration_comprehensive.py`
-5. Both must pass before merging
-
-The integration test is non-negotiable - it ensures we don't break existing pipelines.
+No plugin builders, no converters, no abstraction - just straightforward code.

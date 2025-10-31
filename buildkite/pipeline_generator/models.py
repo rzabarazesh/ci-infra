@@ -1,18 +1,18 @@
+"""Data models for test step input parsing."""
+
 from typing import List, Optional, Union
 
 from pydantic import BaseModel, model_validator
 from typing_extensions import Self
 
-from ..utils.constants import GPUType
-
-DEFAULT_TEST_WORKING_DIR = "/vllm-workspace/tests"
+from .config import DEFAULT_WORKING_DIR, GPUType
 
 
 class TestStep(BaseModel):
-    """This class represents a test step defined in the test configuration file."""
+    """Test step defined in test-pipeline.yaml."""
 
     label: str
-    working_dir: Optional[str] = DEFAULT_TEST_WORKING_DIR
+    working_dir: Optional[str] = DEFAULT_WORKING_DIR
     optional: Optional[bool] = False
     fast_check: Optional[bool] = None
     fast_check_only: Optional[bool] = None
@@ -33,10 +33,7 @@ class TestStep(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def validate_and_convert_command(cls, values):
-        """
-        Validate that either 'command' or 'commands' is defined.
-        If 'command' is defined, convert it to 'commands'.
-        """
+        """Validate that either 'command' or 'commands' is defined and convert command to commands."""
         if not values.get("command") and not values.get("commands"):
             raise ValueError("Either 'command' or 'commands' must be defined.")
         if values.get("command") and values.get("commands"):
@@ -51,16 +48,15 @@ class TestStep(BaseModel):
         if self.gpu and self.no_gpu:
             raise ValueError("Both 'gpu' and 'no_gpu' cannot be defined together.")
         return self
-
+    
     @model_validator(mode="after")
     def validate_multi_node(self) -> Self:
         if self.num_nodes and not self.num_gpus:
             raise ValueError("'num_gpus' must be defined if 'num_nodes' is defined.")
         if self.num_nodes and self.commands:
-            # For multi-node, commands should be a list of lists
             if isinstance(self.commands, list) and len(self.commands) > 0:
-                # If it's a list of lists, check the length
                 if isinstance(self.commands[0], list):
                     if len(self.commands) != self.num_nodes:
                         raise ValueError("Number of command lists must match the number of nodes.")
         return self
+

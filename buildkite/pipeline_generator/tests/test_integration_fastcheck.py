@@ -13,13 +13,12 @@ from typing import List, Tuple
 import pytest
 import yaml
 
-from buildkite.pipeline_generator.pipeline_config import PipelineGeneratorConfig
+from buildkite.pipeline_generator.config import VLLM_ECR_REPO, VLLM_ECR_URL, PipelineGeneratorConfig, PipelineMode
 from buildkite.pipeline_generator.pipeline_generator import (
     PipelineGenerator,
     read_test_steps,
     write_buildkite_pipeline,
 )
-from buildkite.pipeline_generator.utils import VLLM_ECR_REPO, VLLM_ECR_URL, PipelineMode
 
 # Add parent directories to path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))

@@ -2,9 +2,8 @@
 
 import pytest
 
-from ..data_models.test_step import TestStep
-from ..pipeline_config import PipelineGeneratorConfig
-from ..utils.constants import PipelineMode
+from ..config import PipelineGeneratorConfig, PipelineMode
+from ..models import TestStep
 
 TEST_COMMIT = "abcdef0123456789abcdef0123456789abcdef01"
 TEST_CONTAINER_REGISTRY = "container.registry"

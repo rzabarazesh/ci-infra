@@ -17,10 +17,11 @@ select = ["E", "F", "I"]
 [tool.ruff.lint.per-file-ignores]
 # Integration tests need to modify sys.path before importing (E402)
 "tests/test_integration_*.py" = ["E402"]
-# Hardware test configs and integration tests have long shell commands/URLs (E501)
-"hardware_test_configs.py" = ["E501"]
-"ci/hardware_tests.py" = ["E501"]
-"command_builders/coverage_injection.py" = ["E501"]
+# Modes use star imports for simplicity (F405, F403)
+"modes/*.py" = ["F405", "F403"]
+# Config and helpers have long strings (E501)
+"config.py" = ["E501"]
+"helpers/coverage.py" = ["E501"]
 "tests/test_integration_comprehensive.py" = ["E402", "E501"]
 "tests/test_integration_fastcheck.py" = ["E402", "E501"]
 "tests/test_integration_amd.py" = ["E402", "E501"]

@@ -1,8 +1,6 @@
-"""Coverage injection transformer."""
+"""Coverage injection for pytest commands."""
 
-from typing import List, Optional
-
-from .command_builder_base import CommandTransformer
+from typing import List
 
 
 def inject_coverage_into_command(cmd: str, coverage_file: str) -> str:
@@ -20,30 +18,23 @@ def get_coverage_file_id(step_label: str) -> str:
     return f".coverage.{step_length}_{step_first}"
 
 
-def inject_coverage_into_commands(commands: list, step_label: str, vllm_ci_branch: str) -> str:
+def inject_coverage(commands: List[str], step_label: str, vllm_ci_branch: str) -> str:
     """
     Inject coverage into commands and return combined command string.
     """
     coverage_file = get_coverage_file_id(step_label)
-
     injected_commands = [inject_coverage_into_command(cmd, coverage_file) for cmd in commands]
-
+    
     # Check if any pytest commands were found
     has_pytest = any("pytest " in cmd for cmd in commands)
     result = " && ".join(injected_commands)
-
+    
     if has_pytest:
-        upload_script = f' && curl -sSL https://raw.githubusercontent.com/vllm-project/ci-infra/{vllm_ci_branch}/buildkite/scripts/upload_codecov.sh | bash -s -- "{step_label}"'
+        upload_script = (
+            f" && curl -sSL https://raw.githubusercontent.com/vllm-project/ci-infra/{vllm_ci_branch}"
+            f'/buildkite/scripts/upload_codecov.sh | bash -s -- "{step_label}"'
+        )
         result += upload_script
-
+    
     return result
 
-
-class CoverageTransformer(CommandTransformer):
-    """Transformer that injects coverage collection into commands."""
-
-    def transform(self, commands: List[str], test_step, config) -> Optional[str]:
-        """Transform commands to include coverage collection if enabled."""
-        if config.cov_enabled:
-            return inject_coverage_into_commands(commands, test_step.label, config.vllm_ci_branch)
-        return " && ".join(commands)
