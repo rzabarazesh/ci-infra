@@ -93,11 +93,10 @@ def should_block_torch_nightly_test(test_step: TestStep, config: PipelineGenerat
 def should_block_test(test_step: TestStep, config: PipelineGeneratorConfig) -> bool:
     """
     Unified function to determine if a test needs a manual trigger block.
-    
+
     Routes to mode-specific logic based on config.pipeline_mode.
     """
     if config.pipeline_mode == PipelineMode.FASTCHECK:
         return should_block_fastcheck_test(test_step, config)
     else:  # CI mode
         return should_block_ci_test(test_step, config)
-

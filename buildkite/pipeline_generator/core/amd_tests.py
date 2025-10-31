@@ -40,7 +40,7 @@ def get_amd_queue_ci(label: str, num_gpus: Optional[int] = None) -> str:
 def generate_amd_group(test_steps: List[TestStep], config: PipelineGeneratorConfig) -> Dict[str, Any]:
     """
     Generate the AMD tests group.
-    
+
     CI mode: All matching tests, no blocks, soft_fail=false, uses AMD MI325 queues
     Fastcheck mode: Only Basic Correctness Test, has block, soft_fail=true, uses MI300_1 queue
     """
@@ -48,11 +48,11 @@ def generate_amd_group(test_steps: List[TestStep], config: PipelineGeneratorConf
 
     # Add AMD build step (now returns dict directly)
     amd_build_dict = generate_amd_build_step(config)
-    
+
     # Fastcheck needs depends_on: null explicitly
     if config.pipeline_mode == PipelineMode.FASTCHECK:
         amd_build_dict["depends_on"] = None
-    
+
     amd_steps.append(amd_build_dict)
 
     # Add AMD mirror tests
@@ -65,7 +65,7 @@ def generate_amd_group(test_steps: List[TestStep], config: PipelineGeneratorConf
         if config.pipeline_mode == PipelineMode.FASTCHECK:
             if test_step.label != TestLabels.BASIC_CORRECTNESS_TEST:
                 continue
-            
+
             # Fastcheck adds a block for Basic Correctness Test
             block_key = f"block-amd-{get_step_key(test_step.label)}"
             amd_steps.append(
@@ -105,4 +105,3 @@ def generate_amd_group(test_steps: List[TestStep], config: PipelineGeneratorConf
         amd_steps.append(amd_step_dict)
 
     return {"group": "AMD Tests", "depends_on": None, "steps": amd_steps}
-

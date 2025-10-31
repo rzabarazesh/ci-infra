@@ -214,6 +214,15 @@ class KubernetesConfig:
                         },
                         {"name": "NCCL_CUMEM_HOST_ENABLE", "value": "0"},
                         {"name": "HF_HOME", "value": HF_HOME},
+                        {
+                            "name": "HF_TOKEN",
+                            "valueFrom": {
+                                "secretKeyRef": {
+                                    "name": KubernetesConstants.HF_TOKEN_SECRET_NAME,
+                                    "key": KubernetesConstants.HF_TOKEN_SECRET_KEY,
+                                }
+                            },
+                        },
                     ],
                 }
             ],
@@ -235,18 +244,6 @@ class KubernetesConfig:
 
         if self.priority_class:
             pod_spec["priorityClassName"] = self.priority_class
-            # Add HF_TOKEN secret for A100
-            pod_spec["containers"][0]["env"].append(
-                {
-                    "name": "HF_TOKEN",
-                    "valueFrom": {
-                        "secretKeyRef": {
-                            "name": KubernetesConstants.HF_TOKEN_SECRET_NAME,
-                            "key": KubernetesConstants.HF_TOKEN_SECRET_KEY,
-                        }
-                    },
-                }
-            )
 
         return {PluginNames.KUBERNETES: {"podSpec": pod_spec}}
 

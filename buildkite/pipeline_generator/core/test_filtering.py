@@ -4,13 +4,12 @@ from typing import List
 
 from ..data_models.test_step import TestStep
 from ..pipeline_config import PipelineGeneratorConfig
-from ..utils.constants import PipelineMode
 
 
 def should_run_step(test_step: TestStep, config: PipelineGeneratorConfig) -> bool:
     """
     Determine if a step should run based on configuration and file changes.
-    
+
     Used by CI mode for intelligent test selection.
     """
     # Always run if run_all or nightly is enabled
@@ -176,4 +175,3 @@ def extract_pytest_markers(commands) -> str:
             return f" -m {marker}"
 
     return ""
-

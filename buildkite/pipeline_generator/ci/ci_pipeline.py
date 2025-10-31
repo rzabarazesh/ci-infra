@@ -3,11 +3,7 @@
 from typing import Any, Dict, List, Union
 
 from ..core.amd_tests import generate_amd_group
-from ..core.docker_builds import (
-    generate_cpu_build_step,
-    generate_cu118_build_steps,
-    generate_main_build_step,
-)
+from ..core.docker_builds import generate_cpu_build_step, generate_cu118_build_steps, generate_main_build_step
 from ..core.hardware_tests import generate_all_hardware_tests
 from ..core.manual_trigger_rules import should_block_ci_test
 from ..core.test_step_converter import convert_test_step_to_buildkite_step

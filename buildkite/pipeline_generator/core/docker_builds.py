@@ -1,6 +1,6 @@
 """Unified Docker build step generation for both CI and Fastcheck modes."""
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from ..data_models.buildkite_step import BuildkiteBlockStep, BuildkiteStep
 from ..docker_build_configs import (
@@ -18,10 +18,10 @@ from ..utils.constants import AgentQueue, PipelineMode
 def generate_main_build_step(config: PipelineGeneratorConfig) -> Union[BuildkiteStep, Dict]:
     """
     Build the main Docker CUDA image.
-    
+
     CI: Uses postmerge/test repo based on branch
     Fastcheck: Always uses test-repo with premerge queue
-    
+
     Returns dict directly to preserve all fields (especially 'key')
     """
     if config.pipeline_mode == PipelineMode.FASTCHECK:
@@ -52,12 +52,12 @@ def generate_cu118_build_steps(
 ) -> List[Union[BuildkiteStep, BuildkiteBlockStep]]:
     """
     Build the CUDA 11.8 Docker image.
-    
+
     CI only - returns empty list for Fastcheck mode.
     """
     if config.pipeline_mode == PipelineMode.FASTCHECK:
         return []  # Fastcheck doesn't build cu118
-    
+
     # CI mode
     queue = AgentQueue.CPU_QUEUE_POSTMERGE_US_EAST_1 if config.branch == "main" else AgentQueue.CPU_QUEUE_PREMERGE_US_EAST_1
 
@@ -80,13 +80,13 @@ def generate_cu118_build_steps(
 def generate_cpu_build_step(config: PipelineGeneratorConfig) -> Optional[Dict]:
     """
     Build the CPU Docker image.
-    
+
     CI only - returns None for Fastcheck mode.
     Returns dict directly to preserve all fields.
     """
     if config.pipeline_mode == PipelineMode.FASTCHECK:
         return None  # Fastcheck doesn't build CPU image
-    
+
     # CI mode
     queue = AgentQueue.CPU_QUEUE_POSTMERGE_US_EAST_1 if config.branch == "main" else AgentQueue.CPU_QUEUE_PREMERGE_US_EAST_1
 
@@ -99,7 +99,7 @@ def generate_cpu_build_step(config: PipelineGeneratorConfig) -> Optional[Dict]:
 def generate_torch_nightly_build_step(config: PipelineGeneratorConfig, depends_on: Optional[str]) -> Dict:
     """
     Build the torch nightly Docker image.
-    
+
     CI only - should not be called in Fastcheck mode.
     Returns dict directly to preserve all fields.
     """
@@ -124,7 +124,7 @@ def generate_torch_nightly_build_step(config: PipelineGeneratorConfig, depends_o
 def generate_amd_build_step(config: PipelineGeneratorConfig) -> Dict:
     """
     Build the AMD Docker image.
-    
+
     Different configurations for CI vs Fastcheck.
     Returns dict directly to preserve all fields.
     """
@@ -137,4 +137,3 @@ def generate_amd_build_step(config: PipelineGeneratorConfig) -> Dict:
 
     # Return dict directly
     return amd_config.to_buildkite_step()
-

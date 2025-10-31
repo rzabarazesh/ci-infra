@@ -18,13 +18,13 @@ from ..hardware_test_configs import (
     get_tpu_notification_config,
     get_tpu_v0_notification_config,
 )
-from ..utils.constants import AgentQueue, BlockLabels, HardwareLabels, PipelineMode, Scripts
+from ..utils.constants import AgentQueue, BlockLabels, HardwareLabels, Scripts
 
 
 def generate_all_hardware_tests(branch: str, nightly: bool) -> List[Dict[str, Any]]:
     """
     Generate all hardware-specific test steps using data-driven configuration.
-    
+
     Used by CI mode. Returns CI-specific hardware tests without blocking steps.
     """
     steps = []
@@ -68,7 +68,9 @@ def generate_all_hardware_tests(branch: str, nightly: bool) -> List[Dict[str, An
     if branch == "main":
         tpu_depends_on = get_tpu_notification_config()
         # Build notification command with proper indentation
-        tpu_notif_command = """if [[ $$(buildkite-agent step get "outcome" --step "run-tpu-v1-test") != "passed" || $$(buildkite-agent step get "outcome" --step "run-tpu-v1-test-part2") != "passed" ]]; then
+        tpu_notif_command = (
+            """if [[ $$(buildkite-agent step get "outcome" --step "run-tpu-v1-test") != "passed" || """
+            """$$(buildkite-agent step get "outcome" --step "run-tpu-v1-test-part2") != "passed" ]]; then
    cat <<- YAML | buildkite-agent pipeline upload
    steps:
      - label: "Notify owners about failing test"
@@ -81,6 +83,7 @@ def generate_all_hardware_tests(branch: str, nightly: bool) -> List[Dict[str, An
                - "vllm#tpu-ci-notifications"
 YAML
 fi"""
+        )
         steps.append(
             {
                 "label": "TPU V1 Test Notification",
@@ -205,4 +208,3 @@ def add_neuron_test_fastcheck(steps: List) -> None:
     }
     steps.append(neuron_block)
     steps.append(neuron_test)
-

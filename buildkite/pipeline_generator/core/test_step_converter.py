@@ -6,16 +6,7 @@ from ..data_models.buildkite_step import BuildkiteStep
 from ..data_models.test_step import TestStep
 from ..pipeline_config import PipelineGeneratorConfig
 from ..utils.agent_queues import get_agent_queue
-from ..utils.constants import (
-    DEFAULT_WORKING_DIR,
-    AgentQueue,
-    GPUType,
-    PipelineMode,
-    PriorityValues,
-    RetryConfig,
-    Scripts,
-    TestLabels,
-)
+from ..utils.constants import DEFAULT_WORKING_DIR, AgentQueue, GPUType, PipelineMode, PriorityValues, RetryConfig, Scripts, TestLabels
 from .docker_plugins import build_plugin_for_test_step
 
 
@@ -30,8 +21,8 @@ def convert_multi_node_test_step_ci(test_step: TestStep, container_image: str, c
         node_commands = test_step.commands  # type: ignore
     else:
         # Fallback: use the same commands for all nodes
-        simple_commands: List[str] = test_step.commands if test_step.commands else []
-        node_commands = [simple_commands] * (test_step.num_nodes or 2)
+        simple_commands = test_step.commands if test_step.commands else []
+        node_commands = [simple_commands] * (test_step.num_nodes or 2)  # type: ignore
 
     # Build the multi-node command
     quoted_node_commands = []
@@ -78,8 +69,8 @@ def convert_multi_node_test_step_fastcheck(test_step: TestStep, container_image:
     if test_step.commands and len(test_step.commands) > 0 and isinstance(test_step.commands[0], list):
         node_commands = test_step.commands  # type: ignore
     else:
-        simple_commands: List[str] = test_step.commands if test_step.commands else []
-        node_commands = [simple_commands] * (test_step.num_nodes or 2)
+        simple_commands = test_step.commands if test_step.commands else []
+        node_commands = [simple_commands] * (test_step.num_nodes or 2)  # type: ignore
 
     # Build the multi-node command
     quoted_node_commands = []
@@ -123,7 +114,7 @@ def get_agent_queue_fastcheck(test_step: TestStep) -> str:
 def convert_test_step_to_buildkite_step(test_step: TestStep, container_image: str, config: PipelineGeneratorConfig) -> BuildkiteStep:
     """
     Unified function to convert TestStep into BuildkiteStep.
-    
+
     Routes to mode-specific logic based on config.pipeline_mode.
     """
     # Check if this is a multi-node test
@@ -143,10 +134,10 @@ def convert_test_step_to_buildkite_step(test_step: TestStep, container_image: st
             agent_queue = AgentQueue.A100_QUEUE
         else:
             agent_queue = get_agent_queue_fastcheck(test_step)
-        
+
         # Fastcheck uses retry_limit = 5 (except for A100 which is handled below)
         retry_limit = 5
-        
+
         # A100 in fastcheck has special handling
         if test_step.gpu == GPUType.A100:
             return BuildkiteStep(
@@ -192,4 +183,3 @@ def convert_test_step_to_buildkite_step(test_step: TestStep, container_image: st
     )
 
     return buildkite_step
-

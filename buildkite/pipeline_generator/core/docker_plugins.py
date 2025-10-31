@@ -74,7 +74,7 @@ def build_full_docker_command(test_step: TestStep, config: PipelineGeneratorConf
         docker_command = build_docker_command_fastcheck(test_step, config)
     else:  # CI mode
         docker_command = build_docker_command_ci(test_step, config)
-    
+
     working_dir = test_step.working_dir or DEFAULT_WORKING_DIR
     return f"{ShellCommands.CHECK_NVIDIA_GPU} && {ShellCommands.SETUP_DEPRECATED_BEAM_SEARCH} && cd {working_dir} && {docker_command}"
 
@@ -116,12 +116,12 @@ def build_environment(test_step: TestStep, config: PipelineGeneratorConfig) -> D
 def build_docker_plugin(test_step: TestStep, container_image: str, config: PipelineGeneratorConfig) -> Dict:
     """Build standard Docker plugin configuration."""
     full_command = build_full_docker_command(test_step, config)
-    
+
     # CI mode adds trailing space; Fastcheck doesn't
     if config.pipeline_mode == PipelineMode.CI:
         if full_command and not full_command.endswith(" "):
             full_command += " "
-    
+
     bash_flags = "-xce" if config.fail_fast else "-xc"
 
     # Build environment configuration (mode-aware)
@@ -132,9 +132,9 @@ def build_docker_plugin(test_step: TestStep, container_image: str, config: Pipel
 
     # Determine if mount_buildkite_agent is needed
     if config.pipeline_mode == PipelineMode.FASTCHECK:
-        mount_agent = test_step.label == TestLabels.BENCHMARKS or test_step.mount_buildkite_agent
+        mount_agent = test_step.label == TestLabels.BENCHMARKS or bool(test_step.mount_buildkite_agent)
     else:  # CI mode
-        mount_agent = test_step.label == TestLabels.BENCHMARKS or test_step.mount_buildkite_agent or config.cov_enabled
+        mount_agent = test_step.label == TestLabels.BENCHMARKS or bool(test_step.mount_buildkite_agent) or config.cov_enabled
 
     docker_config = StandardDockerConfig(
         image=container_image,
@@ -152,12 +152,12 @@ def build_docker_plugin(test_step: TestStep, container_image: str, config: Pipel
 def build_special_gpu_plugin(test_step: TestStep, container_image: str, config: PipelineGeneratorConfig) -> Dict:
     """Build Docker plugin for special GPUs (H200, B200)."""
     full_command = build_full_docker_command(test_step, config)
-    
+
     # CI mode adds trailing space
     if config.pipeline_mode == PipelineMode.CI:
         if full_command and not full_command.endswith(" "):
             full_command += " "
-    
+
     bash_flags = "-xce" if config.fail_fast else "-xc"
 
     gpu_type = test_step.gpu.value if test_step.gpu else "h200"
@@ -191,7 +191,7 @@ def build_special_gpu_plugin(test_step: TestStep, container_image: str, config: 
 def build_fastcheck_a100_kubernetes_plugin(test_step: TestStep, container_image: str) -> Dict:
     """Build Kubernetes plugin for A100 in fastcheck mode (fastcheck-specific)."""
     # Build command without coverage
-    commands = flatten_commands(test_step.commands)
+    commands = flatten_commands(test_step.commands or [])
     commands = normalize_commands(commands)
     docker_command = " && ".join(commands)
     working_dir = test_step.working_dir or DEFAULT_WORKING_DIR
@@ -282,7 +282,7 @@ def build_plugin_for_test_step(test_step: TestStep, container_image: str, config
             return build_fastcheck_a100_kubernetes_plugin(test_step, container_image)
         # All other GPUs (H100, H200, B200, etc.) use standard Docker in fastcheck
         return build_docker_plugin(test_step, container_image, config)
-    
+
     # CI mode: special handling for multiple GPU types
     # CI mode uses Kubernetes for H100 and A100
     if test_step.gpu in [GPUType.H100, GPUType.A100]:
@@ -294,4 +294,3 @@ def build_plugin_for_test_step(test_step: TestStep, container_image: str, config
 
     # Standard Docker for all others
     return build_docker_plugin(test_step, container_image, config)
-
