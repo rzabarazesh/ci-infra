@@ -1,8 +1,8 @@
 """Tests for test selection logic."""
 
-from ..ci.manual_trigger_rules import should_block_ci_test as should_block_step
-from ..ci.manual_trigger_rules import should_block_torch_nightly_test
-from ..ci.test_filtering import (
+from ..core.manual_trigger_rules import should_block_ci_test as should_block_step
+from ..core.manual_trigger_rules import should_block_torch_nightly_test
+from ..core.test_filtering import (
     are_only_tests_changed,
     extract_covered_test_paths,
     extract_pytest_markers,

@@ -2,7 +2,17 @@
 
 from typing import Any, Dict, List, Union
 
-from ..ci.hardware_tests import generate_all_hardware_tests
+from ..core.amd_tests import generate_amd_group
+from ..core.docker_builds import generate_main_build_step
+from ..core.hardware_tests import (
+    add_neuron_test_fastcheck,
+    generate_all_hardware_tests,
+    get_gh200_test,
+    get_intel_tests,
+    get_tpu_v0_tests,
+    get_tpu_v1_tests,
+)
+from ..core.test_step_converter import convert_test_step_to_buildkite_step
 from ..data_models.buildkite_step import BuildkiteBlockStep, BuildkiteStep, get_step_key
 from ..data_models.test_step import TestStep
 from ..pipeline_config import PipelineGeneratorConfig
@@ -15,10 +25,6 @@ from ..utils.constants import (
     PriorityValues,
     Scripts,
 )
-from .amd_tests import generate_amd_group
-from .docker_builds import generate_main_build_step
-from .hardware_tests import get_gh200_test, get_intel_tests, get_tpu_v0_tests, get_tpu_v1_tests
-from .test_step_converter import convert_fastcheck_test_step
 
 
 def generate_fastcheck_test_steps(test_steps: List[TestStep], config: PipelineGeneratorConfig) -> List[Union[BuildkiteStep, BuildkiteBlockStep]]:
@@ -43,30 +49,14 @@ def generate_fastcheck_test_steps(test_steps: List[TestStep], config: PipelineGe
         # Fast check tests always run immediately (no blocks)
         depends_on = BuildStepKeys.MAIN_IMAGE
 
-        # Convert using fastcheck converter (always main image)
-        buildkite_step = convert_fastcheck_test_step(test_step, config.container_image, config)
+        # Convert using unified converter (mode-aware)
+        buildkite_step = convert_test_step_to_buildkite_step(test_step, config.container_image, config)
         buildkite_step.depends_on = depends_on
         steps.append(buildkite_step)
 
     return steps
 
 
-def _add_neuron_test(steps: List) -> None:
-    """Add Neuron test at the beginning (fastcheck-specific)."""
-    neuron_block: Dict[str, Any] = {
-        "block": BlockLabels.RUN_NEURON_TEST,
-        "depends_on": None,
-        "key": "run-neuron-test",
-    }
-    neuron_test: Dict[str, Any] = {
-        "label": HardwareLabels.NEURON_TEST,
-        "depends_on": "run-neuron-test",
-        "agents": {"queue": AgentQueue.NEURON},
-        "command": f"bash {Scripts.RUN_NEURON_TEST}",
-        "soft_fail": False,
-    }
-    steps.append(neuron_block)
-    steps.append(neuron_test)
 
 
 def generate_blocked_test_steps(test_steps: List[TestStep], config: PipelineGeneratorConfig) -> List[Union[BuildkiteStep, BuildkiteBlockStep, Dict[str, Any]]]:
@@ -91,7 +81,7 @@ def generate_blocked_test_steps(test_steps: List[TestStep], config: PipelineGene
             )
         )
 
-        buildkite_step = convert_fastcheck_test_step(test_step, config.container_image, config)
+        buildkite_step = convert_test_step_to_buildkite_step(test_step, config.container_image, config)
         buildkite_step.depends_on = block_key
         steps.append(buildkite_step)
 
@@ -109,7 +99,7 @@ def generate_blocked_test_steps(test_steps: List[TestStep], config: PipelineGene
             )
         )
 
-        buildkite_step = convert_fastcheck_test_step(test_step, config.container_image, config)
+        buildkite_step = convert_test_step_to_buildkite_step(test_step, config.container_image, config)
         buildkite_step.depends_on = block_key
         steps.append(buildkite_step)
 
@@ -122,7 +112,7 @@ def generate_blocked_test_steps(test_steps: List[TestStep], config: PipelineGene
         }
         steps.append(a100_block)  # type: ignore[arg-type]
         for test_step in a100_tests:
-            buildkite_step = convert_fastcheck_test_step(test_step, config.container_image, config)
+            buildkite_step = convert_test_step_to_buildkite_step(test_step, config.container_image, config)
             buildkite_step.priority = PriorityValues.A100_TESTS
             steps.append(buildkite_step)
 
@@ -137,7 +127,7 @@ def generate_fastcheck_pipeline(test_steps: List[TestStep], config: PipelineGene
     steps.append(generate_main_build_step(config))
 
     # Neuron test (at the top, before regular tests)
-    _add_neuron_test(steps)
+    add_neuron_test_fastcheck(steps)
 
     # Fast-check tests (run immediately)
     steps.extend(generate_fastcheck_test_steps(test_steps, config))

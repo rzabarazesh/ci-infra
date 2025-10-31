@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Union
 import click
 import yaml
 
-from .ci.amd_tests import generate_amd_group
 from .ci.ci_pipeline import generate_ci_pipeline
+from .core.amd_tests import generate_amd_group
 from .data_models.buildkite_step import BuildkiteBlockStep, BuildkiteStep
 from .data_models.test_step import TestStep
 from .fastcheck.fastcheck_pipeline import generate_fastcheck_pipeline
@@ -49,13 +49,17 @@ def write_buildkite_pipeline(steps: List[Union[BuildkiteStep, BuildkiteBlockStep
     # Convert steps to dicts, handling both objects and plain dicts
     steps_dicts = []
     for step in steps:
-        if isinstance(step, (BuildkiteStep, BuildkiteBlockStep)):
+        if isinstance(step, dict):
+            # Already a dict, use as-is
+            steps_dicts.append(step)
+        elif isinstance(step, (BuildkiteStep, BuildkiteBlockStep)):
             step_dict = step.model_dump(exclude_none=True)
             # Remove empty commands list (matches Jinja behavior)
             if "commands" in step_dict and step_dict["commands"] == []:
                 del step_dict["commands"]
             steps_dicts.append(step_dict)
         else:
+            # Fallback for other types
             steps_dicts.append(step)
 
     pipeline = {"steps": steps_dicts}

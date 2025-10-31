@@ -1,7 +1,7 @@
 """Tests for Docker plugin construction."""
 
-from ..ci.docker_plugins import (
-    build_docker_command,
+from ..core.docker_plugins import (
+    build_docker_command_ci,
     build_full_docker_command,
     build_plugin_for_test_step,
 )

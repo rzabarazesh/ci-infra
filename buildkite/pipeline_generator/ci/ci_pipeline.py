@@ -2,19 +2,19 @@
 
 from typing import Any, Dict, List, Union
 
-from ..data_models.buildkite_step import BuildkiteBlockStep, BuildkiteStep, get_step_key
-from ..data_models.test_step import TestStep
-from ..pipeline_config import PipelineGeneratorConfig
-from ..utils.constants import BuildStepKeys
-from .amd_tests import generate_amd_group
-from .docker_builds import (
+from ..core.amd_tests import generate_amd_group
+from ..core.docker_builds import (
     generate_cpu_build_step,
     generate_cu118_build_steps,
     generate_main_build_step,
 )
-from .hardware_tests import generate_all_hardware_tests
-from .manual_trigger_rules import should_block_ci_test
-from .test_step_converter import convert_test_step_to_buildkite_step
+from ..core.hardware_tests import generate_all_hardware_tests
+from ..core.manual_trigger_rules import should_block_ci_test
+from ..core.test_step_converter import convert_test_step_to_buildkite_step
+from ..data_models.buildkite_step import BuildkiteBlockStep, BuildkiteStep, get_step_key
+from ..data_models.test_step import TestStep
+from ..pipeline_config import PipelineGeneratorConfig
+from ..utils.constants import BuildStepKeys
 from .torch_nightly_tests import generate_torch_nightly_group
 
 
@@ -69,7 +69,9 @@ def generate_ci_pipeline(test_steps: List[TestStep], config: PipelineGeneratorCo
     # Build steps (main, cu118, cpu)
     steps.append(generate_main_build_step(config))
     steps.extend(generate_cu118_build_steps(config))
-    steps.append(generate_cpu_build_step(config))
+    cpu_build = generate_cpu_build_step(config)
+    if cpu_build:  # Should always be present in CI mode
+        steps.append(cpu_build)
 
     # Test steps
     steps.extend(generate_ci_test_steps(test_steps, config))

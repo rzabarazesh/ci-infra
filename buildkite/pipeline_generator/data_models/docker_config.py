@@ -113,16 +113,21 @@ class SpecialGPUDockerConfig:
     gpu_type: str = "h200"  # h200 or b200
     fail_fast: bool = False
     is_main_branch: bool = False
+    skip_codecov: bool = False  # For fastcheck mode
+    hf_home: str = "/benchmark-hf-cache"  # Allow override for fastcheck
 
     def to_plugin_dict(self) -> Dict[str, Any]:
         """Convert to Docker plugin dictionary for special GPUs."""
         env_vars = [
             f"{EnvironmentVariables.VLLM_USAGE_SOURCE}={EnvironmentValues.VLLM_USAGE_CI_TEST}",
             "NCCL_CUMEM_HOST_ENABLE=0",
-            "HF_HOME=/benchmark-hf-cache",
+            f"HF_HOME={self.hf_home}",
             "HF_TOKEN",
-            "CODECOV_TOKEN",
         ]
+        
+        # CODECOV_TOKEN not in fastcheck
+        if not self.skip_codecov:
+            env_vars.append("CODECOV_TOKEN")
 
         if self.fail_fast:
             env_vars.append("PYTEST_ADDOPTS=-x")
@@ -130,11 +135,18 @@ class SpecialGPUDockerConfig:
         if self.is_main_branch:
             env_vars.append("BUILDKITE_ANALYTICS_TOKEN")
 
-        volumes = [
-            "/dev/shm:/dev/shm",
-            "/data/benchmark-hf-cache:/benchmark-hf-cache",
-            "/data/benchmark-vllm-cache:/root/.cache/vllm",
-        ]
+        # Fastcheck uses FSX paths, CI uses benchmark paths
+        if self.hf_home == HF_HOME_FSX:
+            volumes = [
+                "/dev/shm:/dev/shm",
+                f"{HF_HOME_FSX}:{HF_HOME_FSX}",
+            ]
+        else:
+            volumes = [
+                "/dev/shm:/dev/shm",
+                "/data/benchmark-hf-cache:/benchmark-hf-cache",
+                "/data/benchmark-vllm-cache:/root/.cache/vllm",
+            ]
 
         plugin = {
             PluginNames.DOCKER: {

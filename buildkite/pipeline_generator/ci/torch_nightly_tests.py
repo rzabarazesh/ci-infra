@@ -2,13 +2,13 @@
 
 from typing import Any, Dict, List
 
+from ..core.docker_builds import generate_torch_nightly_build_step
+from ..core.manual_trigger_rules import should_block_torch_nightly_test
+from ..core.test_step_converter import convert_test_step_to_buildkite_step
 from ..data_models.buildkite_step import BuildkiteBlockStep, get_step_key
 from ..data_models.test_step import TestStep
 from ..pipeline_config import PipelineGeneratorConfig
 from ..utils.constants import BuildStepKeys
-from .docker_builds import generate_torch_nightly_build_step
-from .manual_trigger_rules import should_block_torch_nightly_test
-from .test_step_converter import convert_test_step_to_buildkite_step
 
 
 def generate_torch_nightly_group(test_steps: List[TestStep], config: PipelineGeneratorConfig) -> Dict[str, Any]:
@@ -20,10 +20,10 @@ def generate_torch_nightly_group(test_steps: List[TestStep], config: PipelineGen
         block_step = BuildkiteBlockStep(block="Build torch nightly image", key="block-build-torch-nightly", depends_on=None)
         torch_nightly_steps.append(block_step.model_dump(exclude_none=True))
 
-    # Add build step for torch nightly
+    # Add build step for torch nightly (now returns dict directly)
     depends_on = "block-build-torch-nightly" if not config.nightly else None
-    torch_build = generate_torch_nightly_build_step(config, depends_on)
-    torch_nightly_steps.append(torch_build.model_dump(exclude_none=True))
+    torch_build_dict = generate_torch_nightly_build_step(config, depends_on)
+    torch_nightly_steps.append(torch_build_dict)
 
     # Add test steps
     for test_step in test_steps:

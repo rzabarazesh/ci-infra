@@ -1,13 +1,18 @@
-"""Test selection and filtering logic."""
+"""Unified test selection and filtering logic for both CI and Fastcheck modes."""
 
 from typing import List
 
 from ..data_models.test_step import TestStep
 from ..pipeline_config import PipelineGeneratorConfig
+from ..utils.constants import PipelineMode
 
 
 def should_run_step(test_step: TestStep, config: PipelineGeneratorConfig) -> bool:
-    """Determine if a step should run based on configuration and file changes."""
+    """
+    Determine if a step should run based on configuration and file changes.
+    
+    Used by CI mode for intelligent test selection.
+    """
     # Always run if run_all or nightly is enabled
     if config.run_all or config.nightly:
         return True
@@ -22,6 +27,15 @@ def should_run_step(test_step: TestStep, config: PipelineGeneratorConfig) -> boo
 
     # If no dependencies specified, always run
     return True
+
+
+def should_run_fastcheck_test(test_step: TestStep, config: PipelineGeneratorConfig) -> bool:
+    """
+    Determine if a fastcheck test should run.
+
+    In fastcheck, this is simple: check the fast_check flag.
+    """
+    return bool(test_step.fast_check) if hasattr(test_step, "fast_check") else False
 
 
 def get_changed_tests(file_diff: List[str]) -> List[str]:
@@ -162,3 +176,4 @@ def extract_pytest_markers(commands) -> str:
             return f" -m {marker}"
 
     return ""
+

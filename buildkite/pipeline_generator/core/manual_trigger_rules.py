@@ -1,7 +1,8 @@
-"""CI-specific manual trigger (blocking) rules."""
+"""Unified manual trigger (blocking) rules for both CI and Fastcheck modes."""
 
 from ..data_models.test_step import TestStep
 from ..pipeline_config import PipelineGeneratorConfig
+from ..utils.constants import PipelineMode
 
 
 def should_run_ci_test(test_step: TestStep, config: PipelineGeneratorConfig) -> bool:
@@ -45,6 +46,22 @@ def should_block_ci_test(test_step: TestStep, config: PipelineGeneratorConfig) -
     return False
 
 
+def should_block_fastcheck_test(test_step: TestStep, config: PipelineGeneratorConfig) -> bool:
+    """
+    Determine if a fastcheck test needs a manual trigger block.
+
+    In fastcheck mode:
+    - Tests with fast_check=True NEVER blocked (run immediately)
+    - All non-fast-check tests ARE blocked
+    """
+    # Fast-check tests never blocked
+    if test_step.fast_check:
+        return False
+
+    # All other tests are blocked
+    return True
+
+
 def should_block_torch_nightly_test(test_step: TestStep, config: PipelineGeneratorConfig) -> bool:
     """
     Blocking logic for tests in the torch nightly group.
@@ -71,3 +88,16 @@ def should_block_torch_nightly_test(test_step: TestStep, config: PipelineGenerat
 
     # Otherwise, block (dependencies don't match)
     return True
+
+
+def should_block_test(test_step: TestStep, config: PipelineGeneratorConfig) -> bool:
+    """
+    Unified function to determine if a test needs a manual trigger block.
+    
+    Routes to mode-specific logic based on config.pipeline_mode.
+    """
+    if config.pipeline_mode == PipelineMode.FASTCHECK:
+        return should_block_fastcheck_test(test_step, config)
+    else:  # CI mode
+        return should_block_ci_test(test_step, config)
+

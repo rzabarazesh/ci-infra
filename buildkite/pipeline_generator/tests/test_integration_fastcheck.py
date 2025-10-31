@@ -139,15 +139,50 @@ def run_python_fastcheck(scenario: Scenario, test_pipeline_path: str, output_pat
         return False, str(e)
 
 
+def normalize_for_comparison(obj):
+    """Recursively normalize data structure for comparison (order-independent)."""
+    if isinstance(obj, dict):
+        # Convert dict to sorted tuple of items for comparison
+        return tuple(sorted((k, normalize_for_comparison(v)) for k, v in obj.items()))
+    elif isinstance(obj, list):
+        # Lists maintain order, normalize each element
+        return tuple(normalize_for_comparison(item) for item in obj)
+    elif isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    else:
+        return str(obj)
+
+
 def compare_yaml_trees(jinja_path: str, python_path: str) -> Tuple[bool, str]:
-    """Compare two YAML files for structural equality."""
+    """Compare two YAML files for structural equality (field order independent)."""
     with open(jinja_path, "r") as f:
         jinja_data = yaml.safe_load(f)
     with open(python_path, "r") as f:
         python_data = yaml.safe_load(f)
 
-    matches = jinja_data == python_data
-    diff_msg = "" if matches else "YAML structures don't match"
+    # Normalize both structures for order-independent comparison
+    jinja_normalized = normalize_for_comparison(jinja_data)
+    python_normalized = normalize_for_comparison(python_data)
+    
+    matches = jinja_normalized == python_normalized
+    
+    if not matches:
+        # Show diff using sorted YAML for readability
+        import difflib
+        jinja_str = yaml.dump(jinja_data, default_flow_style=False, sort_keys=True)
+        python_str = yaml.dump(python_data, default_flow_style=False, sort_keys=True)
+        
+        diff = list(difflib.unified_diff(
+            jinja_str.splitlines(keepends=True),
+            python_str.splitlines(keepends=True),
+            fromfile='jinja',
+            tofile='python',
+            lineterm=''
+        ))
+        
+        diff_msg = "YAML structures don't match (semantically different data)\n" + "".join(diff[:50])
+    else:
+        diff_msg = ""
 
     return matches, diff_msg
 
@@ -195,6 +230,11 @@ def test_fastcheck_pipeline_scenario(scenario, template_path, test_pipeline_path
     # Generate with Python
     python_success, python_error = run_python_fastcheck(scenario, test_pipeline_path, str(python_output))
     assert python_success, f"Python generation failed: {python_error}"
+
+    # Also save to /tmp for debugging
+    import shutil
+    shutil.copy(str(jinja_output), f'/tmp/jinja_{scenario.name}.yaml')
+    shutil.copy(str(python_output), f'/tmp/python_{scenario.name}.yaml')
 
     # Compare outputs
     matches, diff = compare_yaml_trees(str(jinja_output), str(python_output))

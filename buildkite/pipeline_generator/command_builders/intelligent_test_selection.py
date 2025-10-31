@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from ..ci.test_filtering import (
+from ..core.test_filtering import (
     are_only_tests_changed,
     extract_pytest_markers,
     get_changed_tests,
