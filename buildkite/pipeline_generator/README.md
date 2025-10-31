@@ -29,26 +29,21 @@ pipeline_generator/
 ├── hardware_test_configs.py   # Hardware test configs
 ├── pyproject.toml             # Ruff & mypy config
 │
-├── ci/                        # CI-specific logic
-│   ├── ci_pipeline.py        # Main CI orchestration
-│   ├── docker_builds.py      # CI Docker builds
-│   ├── docker_plugins.py     # CI Docker plugin construction
+├── core/                      # Unified modules (mode-aware)
+│   ├── docker_builds.py      # Build step generation
+│   ├── docker_plugins.py     # Plugin construction
 │   ├── test_step_converter.py # Convert tests to Buildkite steps
-│   ├── test_filtering.py     # Which tests to run
+│   ├── test_filtering.py     # Test selection logic
 │   ├── manual_trigger_rules.py # Blocking logic
 │   ├── amd_tests.py          # AMD test group
-│   ├── torch_nightly_tests.py # Torch nightly group
-│   └── hardware_tests.py     # External hardware tests
+│   └── hardware_tests.py     # Hardware test generation
 │
-├── fastcheck/                 # Fastcheck-specific logic
-│   ├── fastcheck_pipeline.py # Main fastcheck orchestration
-│   ├── docker_builds.py      # Fastcheck Docker builds
-│   ├── docker_plugins.py     # Fastcheck Docker plugin construction
-│   ├── test_step_converter.py # Convert tests to Buildkite steps
-│   ├── test_filtering.py     # Which tests to run
-│   ├── manual_trigger_rules.py # Blocking logic
-│   ├── amd_tests.py          # AMD test group (Basic Correctness only)
-│   └── hardware_tests.py     # Hardware tests (TPU, GH200, Intel)
+├── ci/                        # CI orchestration
+│   ├── ci_pipeline.py        # Main CI orchestration
+│   └── torch_nightly_tests.py # Torch nightly group (CI only)
+│
+├── fastcheck/                 # Fastcheck orchestration
+│   └── fastcheck_pipeline.py # Main fastcheck orchestration
 │
 ├── data_models/               # Pydantic data models
 │   ├── test_step.py          # Input from test-pipeline.yaml
@@ -98,22 +93,25 @@ def generate(self, test_steps):
     return steps
 ```
 
-CI and Fastcheck have completely separate implementations with zero shared logic that has mode checks. This makes it easy to modify one without worrying about breaking the other.
+Most logic lives in unified modules in `core/` that use `config.pipeline_mode` to branch between CI and Fastcheck behavior. The `ci/` and `fastcheck/` directories only contain orchestration code.
 
 ## Where to Find Things
 
-**For CI pipeline:**
-- Main logic: `ci/ci_pipeline.py`
-- Build steps: `ci/docker_builds.py`
-- Test filtering: `ci/test_filtering.py` and `ci/manual_trigger_rules.py`
-- AMD/Torch nightly: `ci/amd_tests.py`, `ci/torch_nightly_tests.py`
+**Core logic (mode-aware):**
+- Build steps: `core/docker_builds.py`
+- Plugin construction: `core/docker_plugins.py`
+- Test filtering: `core/test_filtering.py` and `core/manual_trigger_rules.py`
+- Test conversion: `core/test_step_converter.py`
+- AMD tests: `core/amd_tests.py`
+- Hardware tests: `core/hardware_tests.py`
 
-**For Fastcheck pipeline:**
-- Main logic: `fastcheck/fastcheck_pipeline.py`
-- Everything else in `fastcheck/` directory
+**Pipeline orchestration:**
+- CI: `ci/ci_pipeline.py` (uses core/)
+- Fastcheck: `fastcheck/fastcheck_pipeline.py` (uses core/)
+- Torch nightly: `ci/torch_nightly_tests.py` (CI only)
 
 **Shared code:**
-- Constants: `utils/constants.py` (build keys, queues, labels, etc.)
+- Constants: `utils/constants.py`
 - Data models: `data_models/`
 - Config files: `*_config.py` at root
 
